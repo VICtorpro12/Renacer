@@ -46,8 +46,8 @@ export async function generateHypnosisScript(data: UserData): Promise<string[]> 
       .filter(line => line.length > 5);
 
     return lines;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error generating hypnosis:', error);
-    throw new Error('Hubo un error al generar tu sesión. Por favor, intenta de nuevo.');
+    throw new Error(error.message || 'Error desconocido al conectar con la API de Gemini. Verifica tu API Key.');
   }
 }
