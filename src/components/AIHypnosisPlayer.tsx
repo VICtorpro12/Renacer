@@ -17,6 +17,9 @@ export default function AIHypnosisPlayer({ data }: AIHypnosisPlayerProps) {
   const [errorMsg, setErrorMsg] = useState('');
 
   const isPlayingRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
+  const oscillatorsRef = useRef<OscillatorNode[]>([]);
+  const noiseNodeRef = useRef<AudioBufferSourceNode | null>(null);
 
   const hasSymptom = (keywords: string[]) => 
     data.symptoms.some(s => keywords.some(k => s.toLowerCase().includes(k.toLowerCase())));
@@ -24,21 +27,9 @@ export default function AIHypnosisPlayer({ data }: AIHypnosisPlayerProps) {
   const isGamma = hasSymptom(['depresión', 'fatiga', 'lentitud', 'energía', 'motivación', 'anhedonia']);
   const isAlpha = hasSymptom(['ansiedad', 'estrés', 'nervios', 'tensión', 'pánico', 'miedo']);
   
+  const targetBeat = isGamma ? 40 : (isAlpha ? 10 : 6);
   const waveType = isGamma ? 'Gamma' : (isAlpha ? 'Alpha' : 'Theta');
-  const activeWaveName = `Frecuencia Base ${waveType} + Melodía de Sanación`;
-
-  // Enlaces de Spotify (Canciones/Tracks) según la frecuencia
-  let spotifyEmbedUrl = '';
-  if (isGamma) {
-    // Canción de Ondas Gamma para energía
-    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/4QMjqFPRxgHXgNaKFkLolx?utm_source=generator&theme=0&autoplay=1&loop=1';
-  } else if (isAlpha) {
-    // Canción de Ondas Alpha para relajación
-    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/3ITjint9eGsKR8RFZIZ0cS?utm_source=generator&theme=0&autoplay=1&loop=1';
-  } else {
-    // Canción de ondas Theta profundas
-    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/7o3DoxE6sIG10H7qOxWoYk?utm_source=generator&theme=0&autoplay=1&loop=1';
-  }
+  const activeWaveName = `Ondas Binaurales + Pad Armónico (${waveType} ${targetBeat}Hz)`;
 
   useEffect(() => {
     // Cargar voces en background para tenerlas listas
@@ -46,8 +37,133 @@ export default function AIHypnosisPlayer({ data }: AIHypnosisPlayerProps) {
 
     return () => {
       window.speechSynthesis.cancel();
+      stopBinauralBeats();
     };
   }, []);
+
+  const createPinkNoise = (ctx: AudioContext) => {
+    const bufferSize = 2 * ctx.sampleRate;
+    const noiseBuffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const output = noiseBuffer.getChannelData(0);
+    let b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
+    for (let i = 0; i < bufferSize; i++) {
+        const white = Math.random() * 2 - 1;
+        b0 = 0.99886 * b0 + white * 0.0555179;
+        b1 = 0.99332 * b1 + white * 0.0750759;
+        b2 = 0.96900 * b2 + white * 0.1538520;
+        b3 = 0.86650 * b3 + white * 0.3104856;
+        b4 = 0.55000 * b4 + white * 0.5329522;
+        b5 = -0.7616 * b5 - white * 0.0168980;
+        output[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+        output[i] *= 0.11; // normalizar
+        b6 = white * 0.115926;
+    }
+    const noiseSource = ctx.createBufferSource();
+    noiseSource.buffer = noiseBuffer;
+    noiseSource.loop = true;
+    return noiseSource;
+  };
+
+  const startBinauralBeats = () => {
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    const ctx = new AudioContextClass();
+    audioCtxRef.current = ctx;
+
+    // Frecuencia base armónica en la mística afinación A=432Hz
+    const baseFreq = isGamma ? 259.2 : (isAlpha ? 216 : 108);  
+    const beatFreq = targetBeat; 
+
+    // 1. Binaural Beats Clínicos
+    const oscLeft = ctx.createOscillator();
+    const oscRight = ctx.createOscillator();
+    const panLeft = ctx.createStereoPanner();
+    const panRight = ctx.createStereoPanner();
+    const gainNode = ctx.createGain();
+
+    oscLeft.frequency.value = baseFreq - (beatFreq / 2);
+    oscRight.frequency.value = baseFreq + (beatFreq / 2);
+    
+    panLeft.pan.value = -1; 
+    panRight.pan.value = 1; 
+
+    gainNode.gain.value = 0.08; // Bajamos el volumen de la frecuencia pura para mezclar bien
+
+    oscLeft.connect(panLeft).connect(gainNode);
+    oscRight.connect(panRight).connect(gainNode);
+    gainNode.connect(ctx.destination);
+    
+    // 2. Pink Noise (Ruido rosa de fondo simulating rain/wind)
+    const noiseNode = createPinkNoise(ctx);
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.value = 0.03; 
+    noiseNode.connect(noiseGain).connect(ctx.destination);
+    
+    // 3. Paisaje Armónico Ambiental (Estilo Spotify Meditación)
+    const padFilter = ctx.createBiquadFilter();
+    padFilter.type = 'lowpass';
+    padFilter.frequency.value = 450; // Filtro profundo muy sedoso
+    padFilter.connect(ctx.destination);
+
+    // Acordes dependiendo del mood
+    const ratios = isGamma ? [1, 1.25, 1.5, 2] // Acorde Mayor (Esperanza / Energía)
+                         : (isAlpha ? [1, 1.333, 1.5, 1.875] // Acorde Suspendido (Paz / Flotar)
+                                    : [1, 1.2, 1.5, 1.8]);   // Acorde Menor 7 (Sueño / Introversión)
+
+    const padBaseFreq = baseFreq / 2; // Bases graves
+    const newOscillators = [oscLeft, oscRight];
+
+    ratios.forEach((ratio, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      const panner = ctx.createStereoPanner();
+
+      osc.type = i % 2 === 0 ? 'sine' : 'triangle';
+      osc.frequency.value = padBaseFreq * ratio;
+
+      // LFO: Hace que el instrumento "respire" de volumen como olas lenta de mar
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.03 + (Math.random() * 0.02); // 30-50 seg de ciclo de respiración
+      
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 0.12; 
+      
+      gain.gain.value = 0.08; // Volumen general del pad
+
+      lfo.connect(lfoGain).connect(gain.gain);
+      panner.pan.value = (Math.random() * 1.6) - 0.8; // Surround 3D falso repartido
+
+      osc.connect(gain).connect(panner).connect(padFilter);
+      
+      lfo.start();
+      osc.start();
+      newOscillators.push(osc, lfo);
+    });
+
+    oscLeft.start();
+    oscRight.start();
+    noiseNode.start();
+
+    oscillatorsRef.current = newOscillators;
+    noiseNodeRef.current = noiseNode;
+  };
+
+  const stopBinauralBeats = () => {
+    oscillatorsRef.current.forEach(osc => {
+      try { osc.stop(); } catch(e) {}
+    });
+    oscillatorsRef.current = [];
+    if (noiseNodeRef.current) {
+      try { noiseNodeRef.current.stop(); } catch(e) {}
+      noiseNodeRef.current = null;
+    }
+    if (audioCtxRef.current) {
+      audioCtxRef.current.close();
+      audioCtxRef.current = null;
+    }
+  };
 
   const handleGenerate = async () => {
     setStatus('generating');
@@ -116,12 +232,15 @@ export default function AIHypnosisPlayer({ data }: AIHypnosisPlayerProps) {
     setStatus('playing');
     
     window.speechSynthesis.cancel(); 
+    stopBinauralBeats();
+    startBinauralBeats();
     startReading(0);
   };
 
   const stopSession = () => {
     isPlayingRef.current = false;
     window.speechSynthesis.cancel();
+    stopBinauralBeats();
     setStatus('ready');
     setCurrentLineIndex(-1);
   };
@@ -231,16 +350,16 @@ export default function AIHypnosisPlayer({ data }: AIHypnosisPlayerProps) {
               </p>
             )}
 
-            <div className="mt-8 w-full max-w-sm mx-auto overflow-hidden rounded-xl border border-white/10 shadow-lg bg-black/40">
-              <iframe 
-                src={spotifyEmbedUrl} 
-                width="100%" 
-                height="80" 
-                frameBorder="0" 
-                allowFullScreen={false} 
-                allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" 
-                loading="lazy"
-              ></iframe>
+            <div className="mt-8 flex items-center justify-center p-6 bg-black/20 rounded-2xl border border-white/5 shadow-inner">
+              <div className="flex flex-col items-center">
+                <Waves className="w-8 h-8 text-indigo-400 mb-2 opacity-80" />
+                <span className="text-sm font-medium text-indigo-200 tracking-wider">
+                  SINTETIZADOR AMBIENTAL ACTIVO
+                </span>
+                <span className="text-xs text-indigo-300/50 mt-1">
+                  Recomendado usar auriculares para recibir la frecuencia {targetBeat}Hz
+                </span>
+              </div>
             </div>
           </motion.div>
         )}
