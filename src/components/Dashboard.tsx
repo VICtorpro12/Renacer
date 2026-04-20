@@ -161,7 +161,7 @@ export default function Dashboard({ data, onNavigate }: DashboardProps) {
                       Sesión recomendada en Spotify:
                     </p>
                     <iframe 
-                      src={rec.spotifyUrl} 
+                      src={`${rec.spotifyUrl}&autoplay=1&loop=1`} 
                       width="100%" 
                       height="80" 
                       frameBorder="0" 

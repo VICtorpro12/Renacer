@@ -31,13 +31,13 @@ export default function AIHypnosisPlayer({ data }: AIHypnosisPlayerProps) {
   let spotifyEmbedUrl = '';
   if (isGamma) {
     // Canción de Ondas Gamma para energía
-    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/4QMjqFPRxgHXgNaKFkLolx?utm_source=generator&theme=0';
+    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/4QMjqFPRxgHXgNaKFkLolx?utm_source=generator&theme=0&autoplay=1&loop=1';
   } else if (isAlpha) {
     // Canción de Ondas Alpha para relajación
-    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/3ITjint9eGsKR8RFZIZ0cS?utm_source=generator&theme=0';
+    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/3ITjint9eGsKR8RFZIZ0cS?utm_source=generator&theme=0&autoplay=1&loop=1';
   } else {
     // Canción de ondas Theta profundas
-    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/7o3DoxE6sIG10H7qOxWoYk?utm_source=generator&theme=0';
+    spotifyEmbedUrl = 'https://open.spotify.com/embed/track/7o3DoxE6sIG10H7qOxWoYk?utm_source=generator&theme=0&autoplay=1&loop=1';
   }
 
   useEffect(() => {
