@@ -1,0 +1,54 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['substance', 'dailyCost', 'quitDate', 'createdAt'])
+        && data.substance is string && data.substance.size() <= 100
+        && data.dailyCost is number
+        && data.quitDate is number
+        && data.createdAt is timestamp
+        // validate stage
+        && (data.get('stage', '') is string && data.get('stage', '').size() <= 50 || !('stage' in data))
+        // validate symptoms list
+        && (data.get('symptoms', []) is list && data.get('symptoms', []).size() <= 20 || !('symptoms' in data))
+        // validate cleanDays 
+        && (data.get('cleanDays', 0) is number || data.get('cleanDays', null) == null);
+    }
+    
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming());
+        
+      allow update: if isSignedIn()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['substance', 'stage', 'symptoms', 'dailyCost', 'quitDate', 'updatedAt', 'cleanDays'])
+        && incoming().createdAt == existing().createdAt;
+    }
+  }
+}

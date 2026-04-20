@@ -1,0 +1,50 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    
+    function incoming() {
+      return request.resource.data;
+    }
+    
+    function existing() {
+      return resource.data;
+    }
+    
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['substance', 'dailyCost', 'quitDate', 'createdAt'])
+        && data.substance is string && data.substance.size() <= 100
+        && data.dailyCost is number
+        && data.quitDate is number
+        && data.createdAt is timestamp;
+    }
+    
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && request.auth.uid == userId;
+      allow list: if isSignedIn() && request.auth.uid == userId; // Wait, list not really needed but safe if restricted to auth.uid == userId? No, better to deny list if they only ever get their own doc via absolute path.
+      
+      allow create: if isSignedIn()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming());
+        // skipping exact size checks for brevity since we only have arrays of strings maybe, wait need to be secure.
+        
+      allow update: if isSignedIn()
+        && isValidId(userId)
+        && request.auth.uid == userId
+        && isValidUserProfile(incoming())
+        && incoming().diff(existing()).affectedKeys().hasOnly(['substance', 'stage', 'symptoms', 'dailyCost', 'quitDate', 'updatedAt'])
+        && incoming().createdAt == existing().createdAt;
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile containing their survey data to track their rehabilitation",
+      "type": "object",
+      "properties": {
+        "substance": { "type": "string" },
+        "stage": { "type": "string" },
+        "symptoms": { "type": "array", "items": { "type": "string" } },
+        "dailyCost": { "type": "number" },
+        "quitDate": { "type": "number", "description": "Timestamp (ms) of when they quit, calculated from survey" },
+        "createdAt": { "type": "number" },
+        "updatedAt": { "type": "number" }
+      },
+      "required": ["substance", "dailyCost", "quitDate", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "#ref": "#/entities/UserProfile" },
+      "description": "Stores individual user's rehabilitation data"
+    }
+  }
+}
